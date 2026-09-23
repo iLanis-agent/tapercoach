@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaperCoach - Your Taper Plan</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#0c0f16; color:#e8ecf4; min-height:100vh; }
+  .wrap { max-width:920px; margin:0 auto; padding:36px 20px 80px; }
+  header { display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; }
+  .logo { font-weight:800; font-size:20px; letter-spacing:-.01em; }
+  .logo span { color:#5eead4; }
+  .home { color:#8b96ad; text-decoration:none; font-size:14px; }
+  .home:hover { color:#fff; }
+  .panel { background:#131826; border:1px solid #232b3f; border-radius:16px; padding:22px; margin-bottom:22px; }
+  .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; }
+  label { display:block; font-size:12.5px; font-weight:600; color:#8b96ad; margin-bottom:6px; text-transform:uppercase; letter-spacing:.05em; }
+  input, select { width:100%; background:#0c0f16; border:1px solid #2a3449; border-radius:10px; color:#e8ecf4; padding:11px 12px; font-size:15px; outline:none; }
+  input:focus, select:focus { border-color:#3b82f6; }
+  .custom-km { display:none; }
+  button.go { margin-top:16px; width:100%; background:linear-gradient(90deg,#14b8a6,#3b82f6); border:0; color:#fff; font-size:16px; font-weight:700; padding:14px; border-radius:12px; cursor:pointer; }
+  .hero { display:flex; flex-wrap:wrap; gap:24px; align-items:baseline; }
+  .big { font-size:clamp(44px,7vw,64px); font-weight:800; letter-spacing:-.02em; background:linear-gradient(90deg,#5eead4,#60a5fa); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .hero-label { color:#9aa6bd; font-size:15px; }
+  .status { margin-top:6px; font-size:15px; color:#cbd5e6; }
+  .pills { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .pill { font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:999px; border:1px solid #2a3449; color:#9aa6bd; }
+  .pill.on { background:rgba(94,234,212,.12); border-color:rgba(94,234,212,.35); color:#5eead4; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#5b6579; padding:10px 8px; border-bottom:1px solid #232b3f; }
+  td { padding:10px 8px; font-size:14.5px; border-bottom:1px solid #1a2132; color:#cbd5e6; }
+  tr.today td { background:rgba(59,130,246,.10); }
+  tr.race td { background:rgba(94,234,212,.08); }
+  .chip { display:inline-block; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; }
+  .chip.easy { background:rgba(96,165,250,.15); color:#93c5fd; }
+  .chip.long { background:rgba(167,139,250,.15); color:#c4b5fd; }
+  .chip.shakeout { background:rgba(251,191,36,.15); color:#fcd34d; }
+  .chip.rest { background:rgba(148,163,184,.12); color:#94a3b8; }
+  .chip.race { background:rgba(94,234,212,.18); color:#5eead4; }
+  .km { font-variant-numeric:tabular-nums; font-weight:600; color:#fff; }
+  .note { color:#8b96ad; font-size:13px; }
+  .carb { color:#fbbf24; }
+  .empty { text-align:center; color:#5b6579; padding:40px 0; font-size:15px; }
+  .week-h { margin:22px 0 6px; font-size:13px; font-weight:700; color:#5eead4; text-transform:uppercase; letter-spacing:.06em; }
+  .totals { margin-top:14px; font-size:13.5px; color:#8b96ad; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="logo">Taper<span>Coach</span></div><a class="home" href="index.html">&#8592; Home</a></header>
+
+  <div class="panel">
+    <div class="form-grid">
+      <div>
+        <label for="dist">Race distance</label>
+        <select id="dist">
+          <option value="5">5K</option>
+          <option value="10">10K</option>
+          <option value="21.1">Half marathon</option>
+          <option value="42.2" selected>Marathon</option>
+          <option value="custom">Custom...</option>
+        </select>
+        <div class="custom-km" id="customWrap" style="margin-top:8px">
+          <input type="number" id="customKm" min="1" step="0.1" placeholder="Distance (km)">
+        </div>
+      </div>
+      <div>
+        <label for="raceDate">Race date</label>
+        <input type="date" id="raceDate">
+      </div>
+      <div>
+        <label for="weeklyKm">Current weekly km</label>
+        <input type="number" id="weeklyKm" min="5" step="1" value="60">
+      </div>
+      <div>
+        <label for="runsPerWeek">Runs per week</label>
+        <select id="runsPerWeek">
+          <option>3</option><option selected>4</option><option>5</option><option>6</option>
+        </select>
+      </div>
+    </div>
+    <button class="go" id="build">Build my taper plan</button>
+  </div>
+
+  <div id="result"></div>
+</div>
+<script src="engine.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var LS = 'tapercoach-settings';
+
+  function parseLocalDate(s) {
+    var p = s.split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2]);
+  }
+
+  function distance() {
+    var v = $('dist').value;
+    if (v === 'custom') return parseFloat($('customKm').value) || 0;
+    return parseFloat(v);
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(LS, JSON.stringify({
+        dist: $('dist').value, customKm: $('customKm').value,
+        raceDate: $('raceDate').value, weeklyKm: $('weeklyKm').value,
+        runsPerWeek: $('runsPerWeek').value
+      }));
+    } catch (e) {}
+  }
+
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(LS) || 'null');
+      if (!s) return false;
+      $('dist').value = s.dist; $('customKm').value = s.customKm || '';
+      $('raceDate').value = s.raceDate; $('weeklyKm').value = s.weeklyKm;
+      $('runsPerWeek').value = s.runsPerWeek;
+      toggleCustom();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function toggleCustom() {
+    $('customWrap').style.display = $('dist').value === 'custom' ? 'block' : 'none';
+  }
+
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function chip(kind) {
+    var labels = { easy:'Easy', long:'Long run', shakeout:'Shakeout', rest:'Rest', race:'Race' };
+    return '<span class="chip ' + kind + '">' + labels[kind] + '</span>';
+  }
+
+  function render() {
+    var dk = distance();
+    var rd = $('raceDate').value;
+    var wk = parseFloat($('weeklyKm').value) || 0;
+    var rpw = parseInt($('runsPerWeek').value, 10);
+    var box = $('result');
+    if (!dk || !rd || !wk) { box.innerHTML = '<div class="panel empty">Pick a distance, race date, and weekly mileage to see your plan.</div>'; return; }
+    var plan;
+    try {
+      plan = TaperEngine.buildPlan({ distanceKm: dk, raceDate: parseLocalDate(rd), today: new Date(), weeklyKm: wk, runsPerWeek: rpw });
+    } catch (e) {
+      box.innerHTML = '<div class="panel empty">' + esc(e.message) + '</div>'; return;
+    }
+    save();
+
+    var html = '<div class="panel"><div class="hero">'
+      + '<div><div class="big">' + plan.daysOut + '</div><div class="hero-label">days to race day</div></div>'
+      + '<div><div class="status">' + esc(TaperEngine.statusFor(plan)) + '</div>'
+      + '<div class="pills">'
+      + '<span class="pill on">' + esc(plan.bucket) + ' taper: ' + plan.days.length + ' day plan</span>'
+      + '<span class="pill' + (plan.inTaper ? ' on' : '') + '">' + (plan.inTaper ? 'Tapering now' : 'Taper starts ' + plan.taperStartISO) + '</span>'
+      + '<span class="pill">Carb load from ' + plan.carbStartISO + '</span>'
+      + '<span class="pill">~' + plan.totalRunKm + ' km of running left</span>'
+      + '</div></div></div></div>';
+
+    html += '<div class="panel"><table><thead><tr><th>Date</th><th>Day</th><th>Session</th><th>Km</th><th>Note</th></tr></thead><tbody>';
+    var todayISO = TaperEngine.iso(new Date());
+    var lastWeek = -1;
+    plan.days.forEach(function (d) {
+      var dt = new Date(d.iso + 'T00:00:00');
+      var wkNum = Math.ceil((plan.daysOut - d.daysOut + 1) / 7);
+      if (wkNum !== lastWeek) { lastWeek = wkNum; html += '<tr><td colspan="5" class="week-h" style="border-bottom:1px solid #232b3f;padding-top:16px">Week ' + wkNum + '</td></tr>'; }
+      var dow = dt.toLocaleDateString('en-US', { weekday: 'short' });
+      var nice = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      var note = esc(d.note).replace(/carb load/i, '<span class="carb">&#127837; carb load</span>');
+      if (d.kind === 'race') note = '&#127937; ' + note;
+      html += '<tr class="' + (d.iso === todayISO ? 'today' : '') + (d.kind === 'race' ? ' race' : '') + '">'
+        + '<td>' + nice + '</td><td>' + dow + '</td><td>' + chip(d.kind) + '</td>'
+        + '<td class="km">' + (d.km || '-') + '</td><td class="note">' + note + '</td></tr>';
+    });
+    html += '</tbody></table><div class="totals">Volume follows a ' + esc(plan.bucket) + ' cutback curve. Run days are spread across your week; the last run day each week is the cutback long run. Trust the process - fitness is banked, freshness is earned.</div></div>';
+    box.innerHTML = html;
+  }
+
+  $('dist').addEventListener('change', function () { toggleCustom(); render(); });
+  ['raceDate','weeklyKm','runsPerWeek','customKm'].forEach(function (id) { $(id).addEventListener('input', render); });
+  $('build').addEventListener('click', render);
+
+  if (load()) render();
+  else {
+    var d = new Date(); d.setDate(d.getDate() + 21);
+    $('raceDate').value = TaperEngine.iso(d);
+    render();
+  }
+})();
+</script>
+</body>
+</html>
